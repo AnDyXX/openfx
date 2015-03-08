@@ -2,7 +2,7 @@
 #define _ofxNatron_h_
 
 /** @brief The kOfxPropName property of the Natron Host */
-#define kOfxNatronHostName          "fr.inria.Natron"
+#define kNatronOfxHostName          "fr.inria.Natron"
 
 /** @brief The name of a string parameter that maps to a sublabel in the GUI,
     e.g. the name of the file in a Reader node, or the name of the operation
@@ -19,21 +19,20 @@
     - kOfxParamPropEvaluateOnChange=0.
     You should set its default value during the kOfxImageEffectActionDescribeInContext action.
  */
-#define kOfxParamStringSublabelName "OfxParamStringSublabelName"
+#define kNatronOfxParamStringSublabelName "NatronOfxParamStringSublabelName"
 
 
 /** @brief string property to indicate the presence of custom components on a clip in or out.
   The string should be formed as such:
-  "OfxImageComponentsPlane_" + planeName + "_OfxImageComponentsName_" + componentsName + "_OfxImageComponentsCount_" + componentsCount
+  kNatronOfxImageComponentsPlane + planeName + kNatronOfxImageComponentsPlaneChannel + channel1Name + kNatronOfxImageComponentsPlaneChannel + channel2Name + kNatronOfxImageComponentsPlaneChannel + channel3Name
  
-  e.g: "OfxImageComponentsPlane_" + "Position" + "_OfxImageComponentsName_" + "XYZ" + "_OfxImageComponentsCount_" + "3"
+  e.g: kNatronOfxImageComponentsPlane + "Position" + kNatronOfxImageComponentsPlaneChannel + "X" + kNatronOfxImageComponentsPlaneChannel + "Y" + kNatronOfxImageComponentsPlaneChannel + "Z"
  
   This indicates to the host in which plane should the given components appear and how many pixel channels it contains.
   It can be used at any place where kOfxImageComponentAlpha, kOfxImageComponentRGB, kOfxImageComponentRGBA, kOfxImageComponentNone (etc...) is
   given.
  */
-#define kNatronOfxImageComponentsPlane  "OfxImageComponentsPlane_"
-#define kNatronOfxImageComponentsName   "_OfxImageComponentsName_"
-#define kNatronOfxImageComponentsCount  "_OfxImageComponentsCount_"
+#define kNatronOfxImageComponentsPlane  "NatronOfxImageComponentsPlane_"
+#define kNatronOfxImageComponentsPlaneChannel   "_Channel_"
 
 #endif // #ifndef _ofxNatron_h_
