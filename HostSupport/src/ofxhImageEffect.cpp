@@ -283,7 +283,7 @@ namespace OFX {
       bool Base::isPassThroughForNonRenderedPlanes() const
       {
           if (!isMultiPlanar()) {
-              return false;
+              return true;
           }
           return _properties.getIntProperty(kFnOfxImageEffectPropPassThroughComponents) != 0;
       }
@@ -1020,6 +1020,10 @@ namespace OFX {
                                        ,
                                        int nViews
 #endif
+#ifdef OFX_EXTENSIONS_NUKE
+                                        ,
+                                        const std::list<std::string>& planes
+#endif
                                        )
       {
         static const Property::PropSpec inStuff[] = {
@@ -1036,6 +1040,7 @@ namespace OFX {
 #endif
 #ifdef OFX_EXTENSIONS_NUKE
           { kFnOfxImageEffectPropView, Property::eInt, 1, true, "0" },
+          { kFnOfxImageEffectPropComponentsPresent, Property::eString, 0, true, "" },
 #endif
           Property::propSpecEnd
         };
@@ -1054,6 +1059,10 @@ namespace OFX {
 #endif
 #ifdef OFX_EXTENSIONS_NUKE
         inArgs.setIntProperty(kFnOfxImageEffectPropView,view);
+        int k = 0;
+        for (std::list<std::string>::const_iterator it = planes.begin(); it != planes.end(); ++it,++k) {
+            inArgs.setStringProperty(kFnOfxImageEffectPropComponentsPresent,*it,k);
+        }
 #endif
 #if defined(OFX_EXTENSIONS_VEGAS) || defined(OFX_EXTENSIONS_NUKE)
         for(std::map<std::string, ClipInstance*>::iterator it=_clips.begin();
@@ -1289,6 +1298,9 @@ namespace OFX {
       // RoD call
       OfxStatus Instance::getRegionOfDefinitionAction(OfxTime  time,
                                                       OfxPointD   renderScale,
+#ifdef OFX_EXTENSIONS_NUKE
+                                                      int view,
+#endif
                                                       OfxRectD &rod)
       {
         static const Property::PropSpec inStuff[] = {
@@ -1309,7 +1321,9 @@ namespace OFX {
         Property::Set outArgs(outStuff);
         
         inArgs.setDoubleProperty(kOfxPropTime,time);
-
+#ifdef OFX_EXTENSIONS_NUKE
+        inArgs.setIntProperty(kFnOfxImageEffectPropView, view);
+#endif
         inArgs.setDoublePropertyN(kOfxImageEffectPropRenderScale, &renderScale.x, 2);
 
 #       ifdef OFX_DEBUG_ACTIONS
@@ -1341,6 +1355,9 @@ namespace OFX {
       /// get the region of interest for each input and return it in the given std::map
       OfxStatus Instance::getRegionOfInterestAction(OfxTime  time,
                                                     OfxPointD   renderScale,
+#ifdef OFX_EXTENSIONS_NUKE
+                                                    int view,
+#endif
                                                     const OfxRectD &roi,
                                                     std::map<ClipInstance *, OfxRectD>& rois) 
       {
@@ -1384,7 +1401,10 @@ namespace OFX {
           inArgs.setDoublePropertyN(kOfxImageEffectPropRenderScale, &renderScale.x, 2);
           inArgs.setDoubleProperty(kOfxPropTime,time);
           inArgs.setDoublePropertyN(kOfxImageEffectPropRegionOfInterest, &roi.x1, 4);
-
+#ifdef OFX_EXTENSIONS_NUKE
+          inArgs.setIntProperty(kFnOfxImageEffectPropView, view);
+#endif
+            
           Property::Set outArgs;
           for(std::map<std::string, ClipInstance*>::iterator it=_clips.begin();
               it!=_clips.end();
@@ -1853,6 +1873,9 @@ namespace OFX {
                                            const std::string &  field,
                                            const OfxRectI &renderRoI,
                                            OfxPointD   renderScale,
+#ifdef OFX_EXTENSIONS_NUKE
+                                           int view,
+#endif
                                            std::string &clip)
       {
         static const Property::PropSpec inStuff[] = {
@@ -1878,7 +1901,10 @@ namespace OFX {
         inArgs.setDoubleProperty(kOfxPropTime,time);
         inArgs.setIntPropertyN(kOfxImageEffectPropRenderWindow, &renderRoI.x1, 4);
         inArgs.setDoublePropertyN(kOfxImageEffectPropRenderScale, &renderScale.x, 2);
-
+#ifdef OFX_EXTENSIONS_NUKE
+        inArgs.setIntProperty(kFnOfxImageEffectPropView, view);
+#endif
+          
         Property::Set outArgs(outStuff);
 
 #       ifdef OFX_DEBUG_ACTIONS

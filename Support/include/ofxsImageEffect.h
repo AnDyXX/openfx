@@ -62,6 +62,8 @@ of the direct OFX objects and any library side only functions.
 #include "ofxParametricParam.h"
 #ifdef OFX_EXTENSIONS_NUKE
 #include "nuke/camera.h"
+#include "nuke/fnOfxExtensions.h"
+#include "nuke/fnPublicOfxExtensions.h"
 #endif
 #ifdef OFX_EXTENSIONS_TUTTLE
 #include "tuttle/ofxReadWrite.h"
@@ -349,6 +351,7 @@ namespace OFX {
 #ifdef OFX_EXTENSIONS_NUKE
     bool supportsCameraParameter;
     bool canTransform;
+    bool isMultiPlanar;
 #endif
     int maxParameters;
     int maxPages;
@@ -567,6 +570,15 @@ namespace OFX {
 #ifdef OFX_EXTENSIONS_NUKE
       /** @brief indicate that a plugin or host can handle transform effects */
       void setCanTransform(bool v);
+      
+      /** @brief Indicates that a host or plugin can fetch more than a type of image from a clip*/
+      void setIsMultiPlanar(bool v);
+      
+      /** @brief Indicates to the host that the plugin is view aware, in which case it will have to use the view calls*/
+      void setIsViewAware(bool v);
+      
+      /** @brief Indicates to the host that a view aware plugin produces the same image independent of the view being rendered*/
+      void setIsViewInvariant(bool v);
 #endif
 
     /** @brief Create a clip, only callable from describe in context 
@@ -934,11 +946,18 @@ namespace OFX {
     FieldEnum fieldToRender;
 #ifdef OFX_EXTENSIONS_VEGAS
     int         viewsToRender;      /// default is 1, for stereoscopic 3d: 2
+#endif
+#if defined(OFX_EXTENSIONS_VEGAS) || defined(OFX_EXTENSIONS_NUKE)
     int         renderView;         /// default is 0, for s3d left eye: 0, right eye: 1
+#endif
+#ifdef OFX_EXTENSIONS_VEGAS
     VegasRenderQualityEnum renderQuality;
 #endif
     bool      sequentialRenderStatus;
     bool      interactiveRenderStatus;
+#ifdef OFX_EXTENSIONS_NUKE
+    std::list<std::string> planes;
+#endif
   };
 
   /** @brief POD struct to pass rendering arguments into @ref OFX::ImageEffect::isIdentity */
@@ -947,6 +966,9 @@ namespace OFX {
     OfxPointD renderScale;
     OfxRectI  renderWindow;
     FieldEnum fieldToRender;
+#ifdef OFX_EXTENSIONS_NUKE
+    int view;
+#endif
   };
 
   /** @brief POD struct to pass arguments into  @ref OFX::ImageEffect::render */
@@ -957,6 +979,9 @@ namespace OFX {
     OfxPointD renderScale;
     bool      sequentialRenderStatus;
     bool      interactiveRenderStatus;
+#ifdef OFX_EXTENSIONS_NUKE
+    int view;
+#endif
   };
 
   /** @brief POD struct to pass arguments into  @ref OFX::ImageEffect::beginSequenceRender */
@@ -965,12 +990,18 @@ namespace OFX {
     OfxPointD renderScale;
     bool      sequentialRenderStatus;
     bool      interactiveRenderStatus;
+#ifdef OFX_EXTENSIONS_NUKE
+    int view;
+#endif
   };
 
   /** @brief POD struct to pass arguments into  @ref OFX::ImageEffect::getRegionOfDefinition */
   struct RegionOfDefinitionArguments {
     double    time;
     OfxPointD renderScale;
+#ifdef OFX_EXTENSIONS_NUKE
+    int view;
+#endif
   };
 
   /** @brief POD struct to pass arguments into @ref OFX::ImageEffect::getRegionsOfInterest */
@@ -978,6 +1009,9 @@ namespace OFX {
     double    time;
     OfxPointD renderScale;
     OfxRectD  regionOfInterest;
+#ifdef OFX_EXTENSIONS_NUKE
+    int view;
+#endif
   };
 
 #ifdef OFX_EXTENSIONS_VEGAS
