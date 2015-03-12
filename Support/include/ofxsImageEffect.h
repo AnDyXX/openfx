@@ -366,7 +366,10 @@ namespace OFX {
     bool supportsProgressSuite;
     bool supportsTimeLineSuite;
     bool supportsMessageSuiteV2;
-
+      
+    bool isNatron;
+    bool supportsDynamicChoices;
+      
   public:
     bool supportsPixelComponent(const PixelComponentEnum component) const;
     bool supportsBitDepth( const BitDepthEnum bitDepth) const;
@@ -574,6 +577,9 @@ namespace OFX {
       /** @brief Indicates that a host or plugin can fetch more than a type of image from a clip*/
       void setIsMultiPlanar(bool v);
       
+      /** @brief Plugin indicates to the host that it should pass through any planes not modified by the plugin*/
+      void setIsPassThroughForNotProcessedPlanes(bool v);
+      
       /** @brief Indicates to the host that the plugin is view aware, in which case it will have to use the view calls*/
       void setIsViewAware(bool v);
       
@@ -635,6 +641,7 @@ namespace OFX {
 #ifdef OFX_EXTENSIONS_NUKE
     double _transform[9];                    /**< @brief a 2D transform to apply to the image */
     bool _transformIsIdentity;
+    std::vector<std::string> _channels;       /**< @brief Natron multi-plane extension used when _pixelComponents == ePixelComponentsCustom*/
 #endif
 
   public :
@@ -643,7 +650,10 @@ namespace OFX {
 
     /** @brief dtor */
     virtual ~ImageBase();
-
+      
+#ifdef OFX_EXTENSIONS_NUKE
+    static void ofxCustomCompToNatronComp(const std::string& comp,std::string* layerName,std::vector<std::string>* channelNames);
+#endif
     const PropertySet &getPropertySet() const {return _imageProps;}
 
     PropertySet &getPropertySet() {return _imageProps;}
@@ -653,6 +663,10 @@ namespace OFX {
 
     /** @brief get the components in the image */
     PixelComponentEnum getPixelComponents(void) const { return _pixelComponents;}
+      
+#ifdef OFX_EXTENSIONS_NUKE
+    const std::vector<std::string>& getChannels() const { return _channels; }
+#endif
 
     /** @brief get the string representing the pixel components */
     std::string getPixelComponentsProperty(void) const { return _imageProps.propGetString(kOfxImageEffectPropComponents);}
@@ -864,6 +878,9 @@ namespace OFX {
     If the same image is fetched twice, it must be deleted in each case, they will not be the same pointer.
     */
     Image* fetchImagePlane(double t,int view,const char* plane, const OfxRectD& bounds);
+      
+    /** @brief Property set indicating the components present on something*/
+    std::list<std::string> getComponentsPresent() const;
       
 #endif
       
@@ -1101,7 +1118,11 @@ namespace OFX {
       
       void addClipComponents(Clip& clip, PixelComponentEnum comps);
       
-      void setPassThroughClip(const Clip& clip,double time,int view);
+      //Pass the raw-string, used by the ofxNatron.h extension
+      void addClipComponents(Clip& clip, const std::string& comps);
+      
+      //Pass NULL into clip for non pass-through
+      void setPassThroughClip(const Clip* clip,double time,int view);
 
   };
     

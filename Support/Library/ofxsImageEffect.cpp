@@ -45,6 +45,7 @@ England
 #ifdef OFX_EXTENSIONS_NUKE
 #include "nuke/fnOfxExtensions.h"
 #endif
+#include "ofxNatron.h"
 #ifdef OFX_SUPPORTS_OPENGLRENDER
 #include "ofxOpenGLRender.h"
 #endif
@@ -845,6 +846,13 @@ namespace OFX {
     }
   }
     
+  void ImageEffectDescriptor::setIsPassThroughForNotProcessedPlanes(bool v)
+  {
+    if (gHostDescription.isMultiPlanar) {
+        _effectProps.propSetInt(kFnOfxImageEffectPropPassThroughComponents, int(v), false);
+    }
+  }
+    
   /** @brief Indicates to the host that the plugin is view aware, in which case it will have to use the view calls*/
   void ImageEffectDescriptor::setIsViewAware(bool v)
   {
@@ -918,7 +926,43 @@ namespace OFX {
 #endif
     return clip;
   }
-
+#ifdef OFX_EXTENSIONS_NUKE
+  void ImageBase::ofxCustomCompToNatronComp(const std::string& comp,std::string* layerName,std::vector<std::string>* channelNames)
+  {
+      std::string compsName;
+      static std::string foundPlaneStr(kNatronOfxImageComponentsPlane);
+      static std::string foundChannelStr(kNatronOfxImageComponentsPlaneChannel);
+      
+      std::size_t foundPlane = comp.find(foundPlaneStr);
+      if (foundPlane == std::string::npos) {
+          throw std::runtime_error("Unsupported components type: " + comp);
+      }
+      
+      std::size_t foundChannel = comp.find(foundChannelStr,foundPlane + foundPlaneStr.size());
+      if (foundChannel == std::string::npos) {
+          throw std::runtime_error("Unsupported components type: " + comp);
+      }
+      
+      
+      for (std::size_t i = foundPlane + foundPlaneStr.size(); i < foundChannel; ++i) {
+          layerName->push_back(comp[i]);
+      }
+      
+      while (foundChannel != std::string::npos) {
+          
+          std::size_t nextChannel = comp.find(foundChannelStr,foundChannel + foundChannelStr.size());
+          
+          std::size_t end = nextChannel == std::string::npos ? comp.size() : nextChannel;
+          
+          std::string chan;
+          for (std::size_t i = foundChannel + foundChannelStr.size(); i < end; ++i) {
+              chan.push_back(comp[i]);
+          }
+          channelNames->push_back(chan);
+          foundChannel = nextChannel;
+      }
+  }
+#endif
   ////////////////////////////////////////////////////////////////////////////////
   // wraps up an image  
   ImageBase::ImageBase(OfxPropertySetHandle props)
@@ -929,27 +973,43 @@ namespace OFX {
     // and fetch all the properties
     _rowBytes         = _imageProps.propGetInt(kOfxImagePropRowBytes);
     _pixelAspectRatio = _imageProps.propGetDouble(kOfxImagePropPixelAspectRatio);;
-
+      
     std::string str  = _imageProps.propGetString(kOfxImageEffectPropComponents);
     _pixelComponents = mapStrToPixelComponentEnum(str);
+      
+#ifdef OFX_EXTENSIONS_NUKE
+      
+    if (_pixelComponents == OFX::ePixelComponentCustom) {
+        //Try to match str against ofxNatron extension
+        std::string layer;
+        try {
+            ofxCustomCompToNatronComp(str, &layer, &_channels);
+        } catch (const std::exception& /*e*/) {
+            //it is not components of the Natron extension
+        }
+        _pixelBytes = (int)_channels.size();
+    } else {
+#endif
+        // compute bytes per pixel
+        _pixelBytes = 0;
+        switch(_pixelComponents)
+        {
+            case ePixelComponentNone : _pixelBytes = 0; break;
+            case ePixelComponentRGBA  : _pixelBytes = 4; break;
+            case ePixelComponentRGB  : _pixelBytes = 3; break;
+            case ePixelComponentAlpha : _pixelBytes = 1; break;
+#ifdef OFX_EXTENSIONS_NUKE
+            case ePixelComponentMotionVectors  : _pixelBytes = 2; break;
+            case ePixelComponentStereoDisparity : _pixelBytes = 2; break;
+#endif
+            case ePixelComponentCustom : _pixelBytes = 0; break;
+        }
 
+#ifdef OFX_EXTENSIONS_NUKE
+    }
+#endif
     str = _imageProps.propGetString(kOfxImageEffectPropPixelDepth);
     _pixelDepth = mapStrToBitDepthEnum(str);
-
-    // compute bytes per pixel
-    _pixelBytes = 0;
-    switch(_pixelComponents) 
-    {
-    case ePixelComponentNone : _pixelBytes = 0; break;
-    case ePixelComponentRGBA  : _pixelBytes = 4; break;
-    case ePixelComponentRGB  : _pixelBytes = 3; break;
-    case ePixelComponentAlpha : _pixelBytes = 1; break;
-#ifdef OFX_EXTENSIONS_NUKE
-    case ePixelComponentMotionVectors  : _pixelBytes = 2; break;
-    case ePixelComponentStereoDisparity : _pixelBytes = 2; break;
-#endif
-    case ePixelComponentCustom : _pixelBytes = 0; break;
-    }
 
     switch(_pixelDepth) 
     {
@@ -1376,6 +1436,16 @@ namespace OFX {
           throwSuiteStatusException(stat);
       
       return new Image(imageHandle);
+  }
+    
+  std::list<std::string> Clip::getComponentsPresent() const
+  {
+    int dim = _clipProps.propGetDimension(kFnOfxImageEffectPropComponentsPresent, false);
+    std::list<std::string> ret;
+    for (int i = 0; i < dim ; ++i) {
+        _clipProps.propGetString(kFnOfxImageEffectPropComponentsPresent, i, false);
+    }
+    return ret;
   }
 #endif
 
@@ -1996,10 +2066,24 @@ namespace OFX {
       }
   }
     
-  void ClipComponentsSetter::setPassThroughClip(const Clip& clip,double time,int view)
+  void ClipComponentsSetter::addClipComponents(Clip& clip, const std::string& comps)
+  {
+     _doneSomething = true;
+     const std::string& propName = extractValueForName(_clipPlanesPropNames, clip.name());
+     if (!propName.empty()) {
+        int dim = _outArgs.propGetDimension(propName.c_str());
+        _outArgs.propSetString(propName.c_str(), comps, dim);
+     }
+  }
+    
+  void ClipComponentsSetter::setPassThroughClip(const Clip* clip,double time,int view)
   {
       _doneSomething = true;
-      _outArgs.propSetString(kFnOfxImageEffectPropPassThroughClip, clip.name(), 0);
+      if (clip) {
+        _outArgs.propSetString(kFnOfxImageEffectPropPassThroughClip, clip->name(), 0);
+      } else {
+        _outArgs.propSetString(kFnOfxImageEffectPropPassThroughClip, "", 0);
+      }
       _outArgs.propSetDouble(kFnOfxImageEffectPropPassThroughTime, time, 0);
       _outArgs.propSetInt(kFnOfxImageEffectPropPassThroughView, view, 0);
   }
@@ -2271,6 +2355,10 @@ namespace OFX {
         gHostDescription.maxPages                   = hostProps.propGetInt(kOfxParamHostPropMaxPages);
         gHostDescription.pageRowCount               = hostProps.propGetInt(kOfxParamHostPropPageRowColumnCount, 0);
         gHostDescription.pageColumnCount            = hostProps.propGetInt(kOfxParamHostPropPageRowColumnCount, 1);
+          
+        gHostDescription.isNatron                   = hostProps.propGetInt(kNatronOfxHostIsNatron, false) != 0;
+        gHostDescription.supportsDynamicChoices     = hostProps.propGetInt(kNatronOfxParamHostPropSupportsDynamicChoices, false) != 0;
+          
         int numComponents = hostProps.propGetDimension(kOfxImageEffectPropSupportedComponents);
         for(int i=0; i<numComponents; ++i)
           gHostDescription._supportedComponents.push_back(mapStrToPixelComponentEnum(hostProps.propGetString(kOfxImageEffectPropSupportedComponents, i)));
@@ -2283,6 +2371,7 @@ namespace OFX {
         for(int i=0; i<numPixelDepths; ++i)
           gHostDescription._supportedPixelDepths.push_back(mapStrToBitDepthEnum(hostProps.propGetString(kOfxImageEffectPropSupportedPixelDepths, i)));
       }
+        
     }
 
     /** @brief fetch the effect property set from the ImageEffectHandle */
