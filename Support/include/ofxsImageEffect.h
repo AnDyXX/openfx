@@ -69,6 +69,10 @@ of the direct OFX objects and any library side only functions.
 #include "tuttle/ofxReadWrite.h"
 #endif
 
+#ifdef OFX_EXTENSIONS_NATRON
+#include "ofxNatron.h"
+#endif
+
 /** @brief Nasty macro used to define empty protected copy ctors and assign ops */
 #define mDeclareProtectedAssignAndCC(CLASS) \
   CLASS &operator=(const CLASS &) {assert(false); return *this;}	\
@@ -118,6 +122,9 @@ namespace OFX {
 #ifdef OFX_EXTENSIONS_TUTTLE
     eContextReader,
     eContextWriter,
+#endif
+#ifdef OFX_EXTENSIONS_NATRON
+    eContextTracker
 #endif
   };
 
@@ -366,10 +373,11 @@ namespace OFX {
     bool supportsProgressSuite;
     bool supportsTimeLineSuite;
     bool supportsMessageSuiteV2;
-      
+#ifdef OFX_EXTENSIONS_NATRON
     bool isNatron;
     bool supportsDynamicChoices;
-      
+#endif
+
   public:
     bool supportsPixelComponent(const PixelComponentEnum component) const;
     bool supportsBitDepth( const BitDepthEnum bitDepth) const;
