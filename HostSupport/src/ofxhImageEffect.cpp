@@ -282,12 +282,23 @@ namespace OFX {
         return _properties.getIntProperty(kFnOfxImageEffectPropMultiPlanar) != 0;
       }
         
-      bool Base::isPassThroughForNonRenderedPlanes() const
+      Base::OfxPassThroughLevelEnum Base::getPassThroughForNonRenderedPlanes() const
       {
-          if (!isMultiPlanar()) {
-              return true;
+          
+          int p =  _properties.getIntProperty(kFnOfxImageEffectPropPassThroughComponents);
+          if (p == 2) {
+              return Base::ePassThroughLevelEnumRenderAllRequestedPlanes;
           }
-          return _properties.getIntProperty(kFnOfxImageEffectPropPassThroughComponents) != 0;
+          if (!isMultiPlanar()) {
+              return Base::ePassThroughLevelEnumPassThroughAllNonRenderedPlanes;
+          }
+          if (p == 0) {
+              return Base::ePassThroughLevelEnumBlockAllNonRenderedPlanes;
+          } else if (p == 1) {
+              return Base::ePassThroughLevelEnumPassThroughAllNonRenderedPlanes;
+          } else {
+              return Base::ePassThroughLevelEnumPassThroughAllNonRenderedPlanes;
+          }
       }
         
       bool Base::isViewAware() const
