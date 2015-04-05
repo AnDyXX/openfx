@@ -671,7 +671,7 @@ namespace OFX {
     double _transform[9];                    /**< @brief a 2D transform to apply to the image */
     bool _transformIsIdentity;
 #endif
-#if defined(OFX_EXTENSIONS_NATRON) && defined(OFX_EXTENSIONS_NUKE)
+#if defined(OFX_EXTENSIONS_NATRON) || defined(OFX_EXTENSIONS_NUKE)
     std::vector<std::string> _pixelComponentCustomNames; /**< @brief Natron multi-plane extension used when _pixelComponents == ePixelComponentsCustom*/
 #endif
 
